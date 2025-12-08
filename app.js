@@ -455,6 +455,7 @@ const DashboardPage = () => {
     const [selectedSdrs, setSelectedSdrs] = useState([]);
     const [stats, setStats] = useState({ total: 0, porSdr: {} });
     const [logPage, setLogPage] = useState(1);
+    const [activeQuickFilter, setActiveQuickFilter] = useState('15dias');
     const logsPerPage = 50;
 
     // Configurar período padrão de 15 dias
@@ -479,10 +480,22 @@ const DashboardPage = () => {
     useEffect(() => { loadLogs(); }, []);
     useEffect(() => { filterLogs(); setLogPage(1); }, [startDate, endDate, selectedSdrs, logs]);
 
+    // Detectar mudanças manuais nas datas para resetar filtro ativo
+    useEffect(() => {
+        if (!startDate && !endDate) {
+            // Se ambas datas estão vazias, está usando "tudo"
+            if (activeQuickFilter !== 'tudo') {
+                setActiveQuickFilter('tudo');
+            }
+        }
+    }, [startDate, endDate]);
+
     // Filtros rápidos
     const setQuickFilter = (filter) => {
         const today = new Date();
         const todayStr = today.toISOString().split('T')[0];
+        
+        setActiveQuickFilter(filter);
         
         switch(filter) {
             case 'hoje':
@@ -560,33 +573,91 @@ const DashboardPage = () => {
             <div className="card p-6 mb-6">
                 <h3 className="text-lg font-semibold mb-4"><i className="fas fa-clock mr-2 text-purple-600"></i>Filtros Rápidos</h3>
                 <div className="flex flex-wrap gap-2 mb-4">
-                    <button onClick={() => setQuickFilter('hoje')} className="px-4 py-2 bg-purple-100 text-purple-700 rounded-lg hover:bg-purple-200 transition text-sm font-medium">
+                    <button 
+                        onClick={() => setQuickFilter('hoje')} 
+                        className={`px-4 py-2 rounded-lg transition text-sm font-medium ${
+                            activeQuickFilter === 'hoje' 
+                                ? 'bg-purple-600 text-white shadow-lg' 
+                                : 'bg-purple-100 text-purple-700 hover:bg-purple-200'
+                        }`}
+                    >
                         <i className="fas fa-calendar-day mr-2"></i>Hoje
                     </button>
-                    <button onClick={() => setQuickFilter('7dias')} className="px-4 py-2 bg-purple-100 text-purple-700 rounded-lg hover:bg-purple-200 transition text-sm font-medium">
+                    <button 
+                        onClick={() => setQuickFilter('7dias')} 
+                        className={`px-4 py-2 rounded-lg transition text-sm font-medium ${
+                            activeQuickFilter === '7dias' 
+                                ? 'bg-purple-600 text-white shadow-lg' 
+                                : 'bg-purple-100 text-purple-700 hover:bg-purple-200'
+                        }`}
+                    >
                         <i className="fas fa-calendar-week mr-2"></i>Últimos 7 dias
                     </button>
-                    <button onClick={() => setQuickFilter('15dias')} className="px-4 py-2 bg-purple-600 text-white rounded-lg hover:bg-purple-700 transition text-sm font-medium">
-                        <i className="fas fa-calendar-alt mr-2"></i>Últimos 15 dias (Padrão)
+                    <button 
+                        onClick={() => setQuickFilter('15dias')} 
+                        className={`px-4 py-2 rounded-lg transition text-sm font-medium ${
+                            activeQuickFilter === '15dias' 
+                                ? 'bg-purple-600 text-white shadow-lg' 
+                                : 'bg-purple-100 text-purple-700 hover:bg-purple-200'
+                        }`}
+                    >
+                        <i className="fas fa-calendar-alt mr-2"></i>Últimos 15 dias {activeQuickFilter === '15dias' && '✓'}
                     </button>
-                    <button onClick={() => setQuickFilter('mes')} className="px-4 py-2 bg-purple-100 text-purple-700 rounded-lg hover:bg-purple-200 transition text-sm font-medium">
+                    <button 
+                        onClick={() => setQuickFilter('mes')} 
+                        className={`px-4 py-2 rounded-lg transition text-sm font-medium ${
+                            activeQuickFilter === 'mes' 
+                                ? 'bg-purple-600 text-white shadow-lg' 
+                                : 'bg-purple-100 text-purple-700 hover:bg-purple-200'
+                        }`}
+                    >
                         <i className="fas fa-calendar mr-2"></i>Este mês
                     </button>
-                    <button onClick={() => setQuickFilter('tudo')} className="px-4 py-2 bg-gray-200 text-gray-700 rounded-lg hover:bg-gray-300 transition text-sm font-medium">
+                    <button 
+                        onClick={() => setQuickFilter('tudo')} 
+                        className={`px-4 py-2 rounded-lg transition text-sm font-medium ${
+                            activeQuickFilter === 'tudo' 
+                                ? 'bg-gray-700 text-white shadow-lg' 
+                                : 'bg-gray-200 text-gray-700 hover:bg-gray-300'
+                        }`}
+                    >
                         <i className="fas fa-infinity mr-2"></i>Tudo
                     </button>
                 </div>
                 
                 {/* Filtros de Data */}
-                <h3 className="text-lg font-semibold mb-4 mt-6"><i className="fas fa-filter mr-2 text-purple-600"></i>Filtros Personalizados</h3>
+                <h3 className="text-lg font-semibold mb-4 mt-6">
+                    <i className="fas fa-filter mr-2 text-purple-600"></i>Filtros Personalizados
+                    {activeQuickFilter === null && (startDate || endDate) && (
+                        <span className="ml-2 px-2 py-1 bg-blue-100 text-blue-700 text-xs rounded-full">
+                            Em uso ✓
+                        </span>
+                    )}
+                </h3>
                 <div className="grid grid-cols-1 md:grid-cols-2 gap-4 mb-4">
                     <div>
                         <label className="block text-sm font-medium text-gray-700 mb-2">Data Inicial</label>
-                        <input type="date" className="input-field" value={startDate} onChange={(e) => setStartDate(e.target.value)} />
+                        <input 
+                            type="date" 
+                            className="input-field" 
+                            value={startDate} 
+                            onChange={(e) => { 
+                                setStartDate(e.target.value); 
+                                setActiveQuickFilter(null); 
+                            }} 
+                        />
                     </div>
                     <div>
                         <label className="block text-sm font-medium text-gray-700 mb-2">Data Final</label>
-                        <input type="date" className="input-field" value={endDate} onChange={(e) => setEndDate(e.target.value)} />
+                        <input 
+                            type="date" 
+                            className="input-field" 
+                            value={endDate} 
+                            onChange={(e) => { 
+                                setEndDate(e.target.value); 
+                                setActiveQuickFilter(null); 
+                            }} 
+                        />
                     </div>
                 </div>
                 
