@@ -113,6 +113,29 @@ const Navbar = ({ user, currentPage, setCurrentPage, onLogout }) => {
     );
 };
 
+const Footer = () => {
+    return (
+        <footer className="bg-gray-800 text-white py-6 mt-12">
+            <div className="container mx-auto px-4 text-center">
+                <p className="text-sm">
+                    Precisa de ajuda, tem dúvidas ou sugestões?{' '}
+                    <a 
+                        href="https://omiexperience.slack.com/team/U02C0EC78H4" 
+                        target="_blank" 
+                        rel="noopener noreferrer"
+                        className="text-purple-400 hover:text-purple-300 font-semibold transition"
+                    >
+                        Mande uma mensagem no Slack para Luã Fhelyp (lua@omie.com.br)
+                    </a>
+                </p>
+                <p className="text-xs text-gray-400 mt-2">
+                    © 2025 Omie - Sistema de Controle de Distribuição SDR
+                </p>
+            </div>
+        </footer>
+    );
+};
+
 const SDRModal = ({ sdr, onClose, onSave, user }) => {
     const [formData, setFormData] = useState({
         sdr_email: sdr?.sdr_email || '',
@@ -298,6 +321,7 @@ const ControlePage = ({ user }) => {
                 )}
             </div>
             {modalOpen && <SDRModal sdr={editingSdr} onClose={() => { setModalOpen(false); setEditingSdr(null); }} onSave={() => { setModalOpen(false); setEditingSdr(null); loadSdrs(); }} user={user} />}
+            <Footer />
         </div>
     );
 };
@@ -308,21 +332,64 @@ const DashboardPage = () => {
     const [loading, setLoading] = useState(true);
     const [startDate, setStartDate] = useState('');
     const [endDate, setEndDate] = useState('');
+    const [selectedSdrs, setSelectedSdrs] = useState([]);
     const [stats, setStats] = useState({ total: 0, porSdr: {} });
+
+    // Configurar período padrão de 15 dias
+    useEffect(() => {
+        const today = new Date();
+        const fifteenDaysAgo = new Date(today);
+        fifteenDaysAgo.setDate(today.getDate() - 15);
+        
+        setEndDate(today.toISOString().split('T')[0]);
+        setStartDate(fifteenDaysAgo.toISOString().split('T')[0]);
+    }, []);
 
     const loadLogs = async () => {
         setLoading(true);
         const { data } = await supabaseClient.from('log_distribuicao').select('*').order('created_at', { ascending: false });
         if (data) {
             setLogs(data);
-            setFilteredLogs(data);
-            calculateStats(data);
         }
         setLoading(false);
     };
 
     useEffect(() => { loadLogs(); }, []);
-    useEffect(() => { filterLogs(); }, [startDate, endDate, logs]);
+    useEffect(() => { filterLogs(); }, [startDate, endDate, selectedSdrs, logs]);
+
+    // Filtros rápidos
+    const setQuickFilter = (filter) => {
+        const today = new Date();
+        const todayStr = today.toISOString().split('T')[0];
+        
+        switch(filter) {
+            case 'hoje':
+                setStartDate(todayStr);
+                setEndDate(todayStr);
+                break;
+            case '7dias':
+                const sevenDaysAgo = new Date(today);
+                sevenDaysAgo.setDate(today.getDate() - 7);
+                setStartDate(sevenDaysAgo.toISOString().split('T')[0]);
+                setEndDate(todayStr);
+                break;
+            case '15dias':
+                const fifteenDaysAgo = new Date(today);
+                fifteenDaysAgo.setDate(today.getDate() - 15);
+                setStartDate(fifteenDaysAgo.toISOString().split('T')[0]);
+                setEndDate(todayStr);
+                break;
+            case 'mes':
+                const firstDay = new Date(today.getFullYear(), today.getMonth(), 1);
+                setStartDate(firstDay.toISOString().split('T')[0]);
+                setEndDate(todayStr);
+                break;
+            case 'tudo':
+                setStartDate('');
+                setEndDate('');
+                break;
+        }
+    };
 
     const filterLogs = () => {
         let filtered = [...logs];
@@ -331,6 +398,9 @@ const DashboardPage = () => {
             const end = new Date(endDate);
             end.setHours(23, 59, 59);
             filtered = filtered.filter(log => new Date(log.created_at) <= end);
+        }
+        if (selectedSdrs.length > 0) {
+            filtered = filtered.filter(log => selectedSdrs.includes(log.sdr_nome));
         }
         setFilteredLogs(filtered);
         calculateStats(filtered);
@@ -342,12 +412,43 @@ const DashboardPage = () => {
         setStats({ total: data.length, porSdr });
     };
 
+    // Lista única de SDRs
+    const uniqueSdrs = [...new Set(logs.map(log => log.sdr_nome))].sort();
+
+    const toggleSdr = (sdr) => {
+        setSelectedSdrs(prev => 
+            prev.includes(sdr) ? prev.filter(s => s !== sdr) : [...prev, sdr]
+        );
+    };
+
     return (
         <div className="container mx-auto px-4 py-8">
             <h2 className="text-3xl font-bold text-gray-800 mb-6">Dashboard</h2>
+            
+            {/* Filtros Rápidos */}
             <div className="card p-6 mb-6">
-                <h3 className="text-lg font-semibold mb-4"><i className="fas fa-filter mr-2 text-purple-600"></i>Filtros</h3>
-                <div className="grid grid-cols-1 md:grid-cols-2 gap-4">
+                <h3 className="text-lg font-semibold mb-4"><i className="fas fa-clock mr-2 text-purple-600"></i>Filtros Rápidos</h3>
+                <div className="flex flex-wrap gap-2 mb-4">
+                    <button onClick={() => setQuickFilter('hoje')} className="px-4 py-2 bg-purple-100 text-purple-700 rounded-lg hover:bg-purple-200 transition text-sm font-medium">
+                        <i className="fas fa-calendar-day mr-2"></i>Hoje
+                    </button>
+                    <button onClick={() => setQuickFilter('7dias')} className="px-4 py-2 bg-purple-100 text-purple-700 rounded-lg hover:bg-purple-200 transition text-sm font-medium">
+                        <i className="fas fa-calendar-week mr-2"></i>Últimos 7 dias
+                    </button>
+                    <button onClick={() => setQuickFilter('15dias')} className="px-4 py-2 bg-purple-600 text-white rounded-lg hover:bg-purple-700 transition text-sm font-medium">
+                        <i className="fas fa-calendar-alt mr-2"></i>Últimos 15 dias (Padrão)
+                    </button>
+                    <button onClick={() => setQuickFilter('mes')} className="px-4 py-2 bg-purple-100 text-purple-700 rounded-lg hover:bg-purple-200 transition text-sm font-medium">
+                        <i className="fas fa-calendar mr-2"></i>Este mês
+                    </button>
+                    <button onClick={() => setQuickFilter('tudo')} className="px-4 py-2 bg-gray-200 text-gray-700 rounded-lg hover:bg-gray-300 transition text-sm font-medium">
+                        <i className="fas fa-infinity mr-2"></i>Tudo
+                    </button>
+                </div>
+                
+                {/* Filtros de Data */}
+                <h3 className="text-lg font-semibold mb-4 mt-6"><i className="fas fa-filter mr-2 text-purple-600"></i>Filtros Personalizados</h3>
+                <div className="grid grid-cols-1 md:grid-cols-2 gap-4 mb-4">
                     <div>
                         <label className="block text-sm font-medium text-gray-700 mb-2">Data Inicial</label>
                         <input type="date" className="input-field" value={startDate} onChange={(e) => setStartDate(e.target.value)} />
@@ -357,7 +458,45 @@ const DashboardPage = () => {
                         <input type="date" className="input-field" value={endDate} onChange={(e) => setEndDate(e.target.value)} />
                     </div>
                 </div>
-                {(startDate || endDate) && <button onClick={() => { setStartDate(''); setEndDate(''); }} className="mt-4 text-sm text-purple-600 hover:text-purple-800"><i className="fas fa-times mr-1"></i>Limpar</button>}
+                
+                {/* Filtro por SDR */}
+                {uniqueSdrs.length > 0 && (
+                    <div className="mt-4">
+                        <label className="block text-sm font-medium text-gray-700 mb-2">
+                            <i className="fas fa-user-friends mr-2"></i>Filtrar por SDR {selectedSdrs.length > 0 && `(${selectedSdrs.length} selecionados)`}
+                        </label>
+                        <div className="flex flex-wrap gap-2">
+                            {uniqueSdrs.map(sdr => (
+                                <button
+                                    key={sdr}
+                                    onClick={() => toggleSdr(sdr)}
+                                    className={`px-3 py-2 rounded-lg transition text-sm font-medium ${
+                                        selectedSdrs.includes(sdr)
+                                            ? 'bg-purple-600 text-white'
+                                            : 'bg-gray-200 text-gray-700 hover:bg-gray-300'
+                                    }`}
+                                >
+                                    {selectedSdrs.includes(sdr) && <i className="fas fa-check mr-2"></i>}
+                                    {sdr}
+                                </button>
+                            ))}
+                            {selectedSdrs.length > 0 && (
+                                <button
+                                    onClick={() => setSelectedSdrs([])}
+                                    className="px-3 py-2 bg-red-100 text-red-700 rounded-lg hover:bg-red-200 transition text-sm font-medium"
+                                >
+                                    <i className="fas fa-times mr-2"></i>Limpar SDRs
+                                </button>
+                            )}
+                        </div>
+                    </div>
+                )}
+                
+                {(startDate || endDate || selectedSdrs.length > 0) && (
+                    <button onClick={() => { setStartDate(''); setEndDate(''); setSelectedSdrs([]); setQuickFilter('15dias'); }} className="mt-4 text-sm text-purple-600 hover:text-purple-800 font-medium">
+                        <i className="fas fa-redo mr-1"></i>Resetar todos os filtros
+                    </button>
+                )}
             </div>
             <div className="grid grid-cols-1 md:grid-cols-3 gap-6 mb-6">
                 <div className="stat-card"><div className="stat-value">{stats.total}</div><div className="stat-label">Total de Leads</div></div>
@@ -408,6 +547,7 @@ const DashboardPage = () => {
                     </div>
                 )}
             </div>
+            <Footer />
         </div>
     );
 };
@@ -466,6 +606,7 @@ const LogsPage = () => {
                     </div>
                 )}
             </div>
+            <Footer />
         </div>
     );
 };
