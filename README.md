@@ -1,34 +1,20 @@
 # 🚀 Sistema de Controle SDR - Omie
 
-Sistema web para gestão de distribuição de leads para SDRs.
+Sistema web para gestão de distribuição de leads do Weni Chats para SDRs.
 
-**🌐 Acesse online:** https://seu-usuario.github.io/sistema-sdr/
+**🌐 Acesse online:** [https://lua-fhelyp-omie.github.io/controle_sdr/](https://lua-fhelyp-omie.github.io/controle_sdr/)
 
 ## ✨ Funcionalidades
 
-- 🔐 Login seguro
-- 👥 Gestão completa de SDRs
+- 🔐 Login / Criação de Conta
+- 👥 Gestão de SDRs e Contagem de Leads
 - 📊 Dashboard com métricas
-- 📝 Logs de auditoria
-- ⏰ Horários em Brasília
-
-## 🚀 Como Usar
-
-**Online:** Acesse o link acima  
-**Local:** Abra `index.html` no navegador
+- 📝 Logs de auditoria das alterações
 
 ## 📦 Arquivos
 
 - `index.html` - Página principal
 - `app.js` - Aplicação React  
-- `create_audit_logs_table.sql` - Script SQL
-- `GITHUB_PAGES.md` - Guia de hospedagem
-
-## 🔧 Configuração
-
-1. Execute `create_audit_logs_table.sql` no Supabase
-2. Cadastre usuário na tabela `users`
-3. Acesse o sistema e faça login
 
 ## 📊 Tecnologias
 
