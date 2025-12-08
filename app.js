@@ -24,6 +24,8 @@ const LoginPage = ({ onLogin }) => {
     const [senha, setSenha] = useState('');
     const [loading, setLoading] = useState(false);
     const [error, setError] = useState('');
+    const [isSignup, setIsSignup] = useState(false);
+    const [success, setSuccess] = useState('');
 
     const handleLogin = async (e) => {
         e.preventDefault();
@@ -44,12 +46,63 @@ const LoginPage = ({ onLogin }) => {
                 return;
             }
 
+            // Verificar se usuário está ativo
+            if (data.status === false) {
+                setError('Sua conta está inativa. Entre em contato com Luã Fhelyp (lua@omie.com.br) para ativar.');
+                setLoading(false);
+                return;
+            }
+
             onLogin(data);
         } catch (err) {
             console.error('Erro no login:', err);
             setError('Erro ao fazer login');
             setLoading(false);
         }
+    };
+
+    const handleSignup = async (e) => {
+        e.preventDefault();
+        setLoading(true);
+        setError('');
+        setSuccess('');
+
+        try {
+            // Verificar se email já existe
+            const { data: existing } = await supabaseClient
+                .from('users')
+                .select('email')
+                .eq('email', email)
+                .single();
+
+            if (existing) {
+                setError('Este email já está cadastrado');
+                setLoading(false);
+                return;
+            }
+
+            // Criar novo usuário com senha padrão e status false
+            const { error } = await supabaseClient
+                .from('users')
+                .insert({
+                    email: email,
+                    senha: 'Omie#2025',
+                    status: false
+                });
+
+            if (error) throw error;
+
+            setSuccess('Conta criada! Entre em contato com Luã Fhelyp (lua@omie.com.br) para ativar sua conta.');
+            setEmail('');
+            setTimeout(() => {
+                setIsSignup(false);
+                setSuccess('');
+            }, 3000);
+        } catch (err) {
+            console.error('Erro no cadastro:', err);
+            setError('Erro ao criar conta');
+        }
+        setLoading(false);
     };
 
     return (
@@ -60,23 +113,43 @@ const LoginPage = ({ onLogin }) => {
                     <p className="text-gray-600">Sistema de Distribuição de Leads - Omie</p>
                 </div>
                 
-                <form onSubmit={handleLogin}>
+                <form onSubmit={isSignup ? handleSignup : handleLogin}>
                     <div className="mb-4">
                         <label className="block text-sm font-medium text-gray-700 mb-2">Email</label>
                         <input type="email" className="input-field" placeholder="seu@email.com" value={email} onChange={(e) => setEmail(e.target.value)} required />
                     </div>
                     
-                    <div className="mb-6">
-                        <label className="block text-sm font-medium text-gray-700 mb-2">Senha</label>
-                        <input type="password" className="input-field" placeholder="••••••••" value={senha} onChange={(e) => setSenha(e.target.value)} required />
-                    </div>
+                    {!isSignup && (
+                        <div className="mb-6">
+                            <label className="block text-sm font-medium text-gray-700 mb-2">Senha</label>
+                            <input type="password" className="input-field" placeholder="••••••••" value={senha} onChange={(e) => setSenha(e.target.value)} required />
+                        </div>
+                    )}
                     
                     {error && <div className="mb-4 p-3 bg-red-100 text-red-700 rounded-lg text-sm">{error}</div>}
+                    {success && <div className="mb-4 p-3 bg-green-100 text-green-700 rounded-lg text-sm">{success}</div>}
                     
                     <button type="submit" className="btn-primary w-full" disabled={loading}>
-                        {loading ? 'Entrando...' : 'Entrar'}
+                        {loading ? (isSignup ? 'Criando...' : 'Entrando...') : (isSignup ? 'Criar Conta' : 'Entrar')}
                     </button>
                 </form>
+
+                <div className="mt-6 text-center">
+                    <button onClick={() => { setIsSignup(!isSignup); setError(''); setSuccess(''); }} className="text-purple-600 hover:text-purple-700 text-sm font-medium">
+                        {isSignup ? '← Voltar para Login' : 'Criar nova conta'}
+                    </button>
+                </div>
+
+                {isSignup && (
+                    <div className="mt-4 p-4 bg-blue-50 rounded-lg text-sm">
+                        <p className="font-semibold text-blue-800 mb-2">ℹ️ Como funciona:</p>
+                        <ul className="text-blue-700 space-y-1">
+                            <li>• Sua conta será criada com status inativo</li>
+                            <li>• Senha padrão: <code className="bg-blue-200 px-1 rounded">Omie#2025</code></li>
+                            <li>• Entre em contato com Luã para ativar</li>
+                        </ul>
+                    </div>
+                )}
             </div>
         </div>
     );
@@ -115,20 +188,20 @@ const Navbar = ({ user, currentPage, setCurrentPage, onLogout }) => {
 
 const Footer = () => {
     return (
-        <footer className="bg-gray-800 text-white py-6 mt-12">
+        <footer className="bg-gradient-to-r from-purple-50 to-purple-100 border-t border-purple-200 py-6 mt-12">
             <div className="container mx-auto px-4 text-center">
-                <p className="text-sm">
+                <p className="text-sm text-gray-700">
                     Precisa de ajuda, tem dúvidas ou sugestões?{' '}
                     <a 
                         href="https://omiexperience.slack.com/team/U02C0EC78H4" 
                         target="_blank" 
                         rel="noopener noreferrer"
-                        className="text-purple-400 hover:text-purple-300 font-semibold transition"
+                        className="text-purple-600 hover:text-purple-700 font-semibold transition"
                     >
                         Mande uma mensagem no Slack para Luã Fhelyp (lua@omie.com.br)
                     </a>
                 </p>
-                <p className="text-xs text-gray-400 mt-2">
+                <p className="text-xs text-gray-500 mt-2">
                     © 2025 Omie - Sistema de Controle de Distribuição SDR
                 </p>
             </div>
@@ -246,18 +319,33 @@ const SDRModal = ({ sdr, onClose, onSave, user }) => {
 
 const ControlePage = ({ user }) => {
     const [sdrs, setSdrs] = useState([]);
+    const [filteredSdrs, setFilteredSdrs] = useState([]);
     const [loading, setLoading] = useState(true);
     const [modalOpen, setModalOpen] = useState(false);
     const [editingSdr, setEditingSdr] = useState(null);
+    const [searchTerm, setSearchTerm] = useState('');
 
     const loadSdrs = async () => {
         setLoading(true);
         const { data } = await supabaseClient.from('controle_sdrs').select('*').order('sdr_nome');
         setSdrs(data || []);
+        setFilteredSdrs(data || []);
         setLoading(false);
     };
 
     useEffect(() => { loadSdrs(); }, []);
+
+    useEffect(() => {
+        if (searchTerm.trim() === '') {
+            setFilteredSdrs(sdrs);
+        } else {
+            const filtered = sdrs.filter(sdr => 
+                sdr.sdr_nome.toLowerCase().includes(searchTerm.toLowerCase()) ||
+                sdr.sdr_email.toLowerCase().includes(searchTerm.toLowerCase())
+            );
+            setFilteredSdrs(filtered);
+        }
+    }, [searchTerm, sdrs]);
 
     const handleDelete = async (sdr) => {
         if (!confirm(`Excluir ${sdr.sdr_nome}?`)) return;
@@ -278,6 +366,34 @@ const ControlePage = ({ user }) => {
                     <i className="fas fa-plus mr-2"></i>Adicionar SDR
                 </button>
             </div>
+
+            {/* Campo de Busca */}
+            <div className="card p-4 mb-6">
+                <div className="relative">
+                    <input
+                        type="text"
+                        className="input-field pl-10"
+                        placeholder="🔍 Buscar por nome ou email..."
+                        value={searchTerm}
+                        onChange={(e) => setSearchTerm(e.target.value)}
+                    />
+                    <i className="fas fa-search absolute left-3 top-1/2 transform -translate-y-1/2 text-gray-400"></i>
+                    {searchTerm && (
+                        <button
+                            onClick={() => setSearchTerm('')}
+                            className="absolute right-3 top-1/2 transform -translate-y-1/2 text-gray-400 hover:text-gray-600"
+                        >
+                            <i className="fas fa-times"></i>
+                        </button>
+                    )}
+                </div>
+                {searchTerm && (
+                    <p className="text-sm text-gray-600 mt-2">
+                        {filteredSdrs.length} resultado(s) encontrado(s)
+                    </p>
+                )}
+            </div>
+
             <div className="card p-6">
                 {loading ? (
                     <div className="text-center py-8">
@@ -297,7 +413,7 @@ const ControlePage = ({ user }) => {
                                 </tr>
                             </thead>
                             <tbody>
-                                {sdrs.map((sdr) => (
+                                {filteredSdrs.map((sdr) => (
                                     <tr key={sdr.sdr_email}>
                                         <td className="text-sm">{sdr.sdr_email}</td>
                                         <td className="font-semibold">{sdr.sdr_nome}</td>
@@ -311,10 +427,14 @@ const ControlePage = ({ user }) => {
                                 ))}
                             </tbody>
                         </table>
-                        {sdrs.length === 0 && (
+                        {filteredSdrs.length === 0 && (
                             <div className="text-center py-8 text-gray-500">
                                 <i className="fas fa-users text-4xl mb-4 opacity-30"></i>
-                                <p>Nenhum SDR cadastrado</p>
+                                {searchTerm ? (
+                                    <p>Nenhum SDR encontrado com "{searchTerm}"</p>
+                                ) : (
+                                    <p>Nenhum SDR cadastrado</p>
+                                )}
                             </div>
                         )}
                     </div>
@@ -334,6 +454,8 @@ const DashboardPage = () => {
     const [endDate, setEndDate] = useState('');
     const [selectedSdrs, setSelectedSdrs] = useState([]);
     const [stats, setStats] = useState({ total: 0, porSdr: {} });
+    const [logPage, setLogPage] = useState(1);
+    const logsPerPage = 50;
 
     // Configurar período padrão de 15 dias
     useEffect(() => {
@@ -355,7 +477,7 @@ const DashboardPage = () => {
     };
 
     useEffect(() => { loadLogs(); }, []);
-    useEffect(() => { filterLogs(); }, [startDate, endDate, selectedSdrs, logs]);
+    useEffect(() => { filterLogs(); setLogPage(1); }, [startDate, endDate, selectedSdrs, logs]);
 
     // Filtros rápidos
     const setQuickFilter = (filter) => {
@@ -393,12 +515,21 @@ const DashboardPage = () => {
 
     const filterLogs = () => {
         let filtered = [...logs];
-        if (startDate) filtered = filtered.filter(log => new Date(log.created_at) >= new Date(startDate));
-        if (endDate) {
-            const end = new Date(endDate);
-            end.setHours(23, 59, 59);
-            filtered = filtered.filter(log => new Date(log.created_at) <= end);
+        
+        if (startDate) {
+            filtered = filtered.filter(log => {
+                const logDate = new Date(log.created_at).toISOString().split('T')[0];
+                return logDate >= startDate;
+            });
         }
+        
+        if (endDate) {
+            filtered = filtered.filter(log => {
+                const logDate = new Date(log.created_at).toISOString().split('T')[0];
+                return logDate <= endDate;
+            });
+        }
+        
         if (selectedSdrs.length > 0) {
             filtered = filtered.filter(log => selectedSdrs.includes(log.sdr_nome));
         }
@@ -524,27 +655,92 @@ const DashboardPage = () => {
                 )}
             </div>
             <div className="card p-6">
-                <h3 className="text-lg font-semibold mb-4"><i className="fas fa-list mr-2 text-purple-600"></i>Logs ({filteredLogs.length})</h3>
+                <div className="flex items-center justify-between mb-4">
+                    <h3 className="text-lg font-semibold"><i className="fas fa-list mr-2 text-purple-600"></i>Logs ({filteredLogs.length})</h3>
+                    {Math.ceil(filteredLogs.length / logsPerPage) > 1 && (
+                        <span className="text-sm text-gray-600">
+                            Página {logPage} de {Math.ceil(filteredLogs.length / logsPerPage)}
+                        </span>
+                    )}
+                </div>
                 {loading ? (
                     <div className="text-center py-8"><i className="fas fa-spinner fa-spin text-4xl text-purple-600"></i></div>
                 ) : (
-                    <div className="table-container">
-                        <table>
-                            <thead><tr><th>ID</th><th>Data/Hora</th><th>SDR</th><th>Documento</th><th>Telefone</th></tr></thead>
-                            <tbody>
-                                {filteredLogs.slice(0, 100).map((log) => (
-                                    <tr key={log.id}>
-                                        <td className="font-mono text-xs">{log.id}</td>
-                                        <td className="text-sm">{convertToBrasilia(log.created_at)}</td>
-                                        <td className="font-semibold">{log.sdr_nome}</td>
-                                        <td className="font-mono text-sm">{log.lead_documento || 'N/A'}</td>
-                                        <td className="font-mono text-sm">{log.lead_telefone || 'N/A'}</td>
-                                    </tr>
-                                ))}
-                            </tbody>
-                        </table>
-                        {filteredLogs.length === 0 && <div className="text-center py-8 text-gray-500"><i className="fas fa-inbox text-4xl mb-4 opacity-30"></i><p>Nenhum log</p></div>}
-                    </div>
+                    <>
+                        <div className="table-container">
+                            <table>
+                                <thead><tr><th>ID</th><th>Data/Hora</th><th>SDR</th><th>Documento</th><th>Telefone</th></tr></thead>
+                                <tbody>
+                                    {filteredLogs.slice((logPage - 1) * logsPerPage, logPage * logsPerPage).map((log) => (
+                                        <tr key={log.id}>
+                                            <td className="font-mono text-xs">{log.id}</td>
+                                            <td className="text-sm">{convertToBrasilia(log.created_at)}</td>
+                                            <td className="font-semibold">{log.sdr_nome}</td>
+                                            <td className="font-mono text-sm">{log.lead_documento || 'N/A'}</td>
+                                            <td className="font-mono text-sm">{log.lead_telefone || 'N/A'}</td>
+                                        </tr>
+                                    ))}
+                                </tbody>
+                            </table>
+                            {filteredLogs.length === 0 && <div className="text-center py-8 text-gray-500"><i className="fas fa-inbox text-4xl mb-4 opacity-30"></i><p>Nenhum log</p></div>}
+                        </div>
+
+                        {/* Paginação */}
+                        {Math.ceil(filteredLogs.length / logsPerPage) > 1 && (
+                            <div className="flex items-center justify-center gap-2 mt-6">
+                                <button
+                                    onClick={() => { setLogPage(logPage - 1); window.scrollTo({ top: 0, behavior: 'smooth' }); }}
+                                    disabled={logPage === 1}
+                                    className={`px-3 py-1 rounded-lg text-sm transition ${
+                                        logPage === 1
+                                            ? 'bg-gray-200 text-gray-400 cursor-not-allowed'
+                                            : 'bg-purple-100 text-purple-700 hover:bg-purple-200'
+                                    }`}
+                                >
+                                    <i className="fas fa-chevron-left mr-1"></i>Anterior
+                                </button>
+
+                                {[...Array(Math.ceil(filteredLogs.length / logsPerPage))].map((_, i) => {
+                                    const page = i + 1;
+                                    const totalPages = Math.ceil(filteredLogs.length / logsPerPage);
+                                    if (
+                                        page === 1 ||
+                                        page === totalPages ||
+                                        (page >= logPage - 2 && page <= logPage + 2)
+                                    ) {
+                                        return (
+                                            <button
+                                                key={page}
+                                                onClick={() => { setLogPage(page); window.scrollTo({ top: 0, behavior: 'smooth' }); }}
+                                                className={`px-3 py-1 rounded-lg text-sm transition ${
+                                                    logPage === page
+                                                        ? 'bg-purple-600 text-white font-semibold'
+                                                        : 'bg-purple-100 text-purple-700 hover:bg-purple-200'
+                                                }`}
+                                            >
+                                                {page}
+                                            </button>
+                                        );
+                                    } else if (page === logPage - 3 || page === logPage + 3) {
+                                        return <span key={page} className="px-1 text-sm">...</span>;
+                                    }
+                                    return null;
+                                })}
+
+                                <button
+                                    onClick={() => { setLogPage(logPage + 1); window.scrollTo({ top: 0, behavior: 'smooth' }); }}
+                                    disabled={logPage === Math.ceil(filteredLogs.length / logsPerPage)}
+                                    className={`px-3 py-1 rounded-lg text-sm transition ${
+                                        logPage === Math.ceil(filteredLogs.length / logsPerPage)
+                                            ? 'bg-gray-200 text-gray-400 cursor-not-allowed'
+                                            : 'bg-purple-100 text-purple-700 hover:bg-purple-200'
+                                    }`}
+                                >
+                                    Próxima<i className="fas fa-chevron-right ml-1"></i>
+                                </button>
+                            </div>
+                        )}
+                    </>
                 )}
             </div>
             <Footer />
@@ -555,15 +751,28 @@ const DashboardPage = () => {
 const LogsPage = () => {
     const [logs, setLogs] = useState([]);
     const [loading, setLoading] = useState(true);
+    const [currentPage, setCurrentPage] = useState(1);
+    const itemsPerPage = 50;
 
     useEffect(() => {
         const loadLogs = async () => {
-            const { data } = await supabaseClient.from('audit_logs').select('*').order('created_at', { ascending: false }).limit(100);
+            const { data } = await supabaseClient.from('audit_logs').select('*').order('created_at', { ascending: false });
             if (data) setLogs(data);
             setLoading(false);
         };
         loadLogs();
     }, []);
+
+    // Cálculos de paginação
+    const totalPages = Math.ceil(logs.length / itemsPerPage);
+    const startIndex = (currentPage - 1) * itemsPerPage;
+    const endIndex = startIndex + itemsPerPage;
+    const currentLogs = logs.slice(startIndex, endIndex);
+
+    const goToPage = (page) => {
+        setCurrentPage(page);
+        window.scrollTo({ top: 0, behavior: 'smooth' });
+    };
 
     const getAcaoLabel = (acao) => ({ 'INSERT': 'Criação', 'UPDATE': 'Edição', 'DELETE': 'Exclusão' }[acao] || acao);
     const getAcaoColor = (acao) => ({ 'INSERT': 'badge-success', 'UPDATE': 'bg-blue-100 text-blue-800', 'DELETE': 'badge-danger' }[acao] || 'bg-gray-100 text-gray-800');
@@ -571,13 +780,20 @@ const LogsPage = () => {
 
     return (
         <div className="container mx-auto px-4 py-8">
-            <h2 className="text-3xl font-bold text-gray-800 mb-6">Logs de Auditoria</h2>
+            <div className="flex items-center justify-between mb-6">
+                <h2 className="text-3xl font-bold text-gray-800">Logs de Auditoria</h2>
+                <div className="text-sm text-gray-600">
+                    Total: {logs.length} logs | Página {currentPage} de {totalPages}
+                </div>
+            </div>
+
             <div className="card p-6">
                 {loading ? (
                     <div className="text-center py-8"><i className="fas fa-spinner fa-spin text-4xl text-purple-600"></i></div>
                 ) : (
-                    <div className="space-y-4">
-                        {logs.map((log) => (
+                    <>
+                        <div className="space-y-4">
+                            {currentLogs.map((log) => (
                             <div key={log.id} className="border-l-4 border-purple-500 pl-4 py-3 bg-gray-50 rounded-r hover:shadow-md transition">
                                 <div className="flex items-start justify-between mb-2 flex-wrap gap-2">
                                     <div className="flex items-center space-x-3">
@@ -604,6 +820,62 @@ const LogsPage = () => {
                         ))}
                         {logs.length === 0 && <div className="text-center py-8 text-gray-500"><i className="fas fa-history text-4xl mb-4 opacity-30"></i><p>Nenhum log</p></div>}
                     </div>
+
+                    {/* Paginação */}
+                    {totalPages > 1 && (
+                        <div className="flex items-center justify-center gap-2 mt-8">
+                            <button
+                                onClick={() => goToPage(currentPage - 1)}
+                                disabled={currentPage === 1}
+                                className={`px-4 py-2 rounded-lg transition ${
+                                    currentPage === 1
+                                        ? 'bg-gray-200 text-gray-400 cursor-not-allowed'
+                                        : 'bg-purple-100 text-purple-700 hover:bg-purple-200'
+                                }`}
+                            >
+                                <i className="fas fa-chevron-left mr-2"></i>Anterior
+                            </button>
+
+                            {[...Array(totalPages)].map((_, i) => {
+                                const page = i + 1;
+                                if (
+                                    page === 1 ||
+                                    page === totalPages ||
+                                    (page >= currentPage - 2 && page <= currentPage + 2)
+                                ) {
+                                    return (
+                                        <button
+                                            key={page}
+                                            onClick={() => goToPage(page)}
+                                            className={`px-4 py-2 rounded-lg transition ${
+                                                currentPage === page
+                                                    ? 'bg-purple-600 text-white font-semibold'
+                                                    : 'bg-purple-100 text-purple-700 hover:bg-purple-200'
+                                            }`}
+                                        >
+                                            {page}
+                                        </button>
+                                    );
+                                } else if (page === currentPage - 3 || page === currentPage + 3) {
+                                    return <span key={page} className="px-2">...</span>;
+                                }
+                                return null;
+                            })}
+
+                            <button
+                                onClick={() => goToPage(currentPage + 1)}
+                                disabled={currentPage === totalPages}
+                                className={`px-4 py-2 rounded-lg transition ${
+                                    currentPage === totalPages
+                                        ? 'bg-gray-200 text-gray-400 cursor-not-allowed'
+                                        : 'bg-purple-100 text-purple-700 hover:bg-purple-200'
+                                }`}
+                            >
+                                Próxima<i className="fas fa-chevron-right ml-2"></i>
+                            </button>
+                        </div>
+                    )}
+                </>
                 )}
             </div>
             <Footer />
