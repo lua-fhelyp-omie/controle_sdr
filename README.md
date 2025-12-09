@@ -1,4 +1,4 @@
-# 🚀 Sistema de Controle SDR - Omie
+# 🚀 Meu Distribuidor Online - MDO
 
 Sistema web para gestão de distribuição de leads do Weni Chats para SDRs.
 
